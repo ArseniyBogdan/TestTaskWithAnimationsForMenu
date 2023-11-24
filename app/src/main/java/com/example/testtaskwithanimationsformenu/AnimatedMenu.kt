@@ -5,7 +5,6 @@ import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
 import android.content.Context
 import android.graphics.PointF
-import android.graphics.PorterDuff
 import android.util.AttributeSet
 import android.util.Log
 import android.util.TypedValue
@@ -13,10 +12,8 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.animation.AccelerateInterpolator
-import android.view.animation.Animation
 import androidx.annotation.Dimension
 import androidx.annotation.Px
-import androidx.core.animation.addListener
 import androidx.core.animation.doOnEnd
 import kotlin.math.abs
 import kotlin.math.max
@@ -30,7 +27,7 @@ class AnimatedMenu@JvmOverloads constructor(
     private val pointClicked = PointF(0f, 0f)
     private var clickedViewIndex = -1
     private var menuShown: Boolean = false
-    private val views: MutableList<View> = ArrayList<View>()
+    private val views: MutableList<View> = ArrayList()
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         super.onMeasure(widthMeasureSpec, heightMeasureSpec)
@@ -41,13 +38,10 @@ class AnimatedMenu@JvmOverloads constructor(
             }
         }
 
-        for(view in views){
-            measureChild(view)
-        }
-
         var desiredWidth = 0
         var desiredHeight = 0
         for(view in views){
+            measureChild(view)
             val pixelsHeight = dpToPixels(view.measuredHeight)
             val pixelsWidth = dpToPixels(view.measuredWidth)
             desiredWidth = max(desiredWidth, pixelsWidth)
@@ -64,23 +58,20 @@ class AnimatedMenu@JvmOverloads constructor(
     }
 
     override fun onLayout(p0: Boolean, p1: Int, p2: Int, p3: Int, p4: Int) {
-        var height = 0 // конец анимации
+        var height = 0
         for(view in views){
             val pixelsHeight = dpToPixels(view.measuredHeight)
             val pixelsWidth = dpToPixels(view.measuredWidth)
+            view.layout(
+                0, height, pixelsWidth,
+                height + pixelsHeight
+            )
             if(menuShown) {
                 view.translationY = 0f
-                view.layout(
-                    0, height, pixelsWidth,
-                    height + pixelsHeight
-                )
             }
             else{
-                view.layout(
-                    0, measuredHeight, pixelsWidth,
-                    measuredHeight + pixelsHeight
-                )
-                // Должны посчитать смещение
+                // hiding elements below of the ViewGroup
+                view.translationY = measuredHeight.toFloat() - height
             }
             height += pixelsHeight
         }
@@ -101,45 +92,29 @@ class AnimatedMenu@JvmOverloads constructor(
             startForwardAnimation()
             menuShown = true
         }
-        // тут надо делать выбор, в какую сторону будет двигать наши дочерние элементы
-        // при этом надо изначально распологать их в кучке вне этого Layout,
-        // они должны выползать с позиции на одну ниже
-        // движение должно быть с ускорением вначале и с замедление в конце
-        // после этого надо будет придумать как сделать swipe и при этом сдвигать
-        // каждый элемент вниз после swipe, тоже своей анимацией.
     }
 
+    // animation of the appearance of views
     private fun startForwardAnimation(){
-        var desiredHeight = 0
         val animators: MutableList<Animator> = ArrayList()
         for(index in 0 until views.size){
-            val va = ObjectAnimator.ofFloat(views[index], TRANSLATION_Y,
-                (desiredHeight - height).toFloat())
+            val va = ObjectAnimator.ofFloat(views[index], TRANSLATION_Y, 0f)
             animators.add(va)
-            desiredHeight += views[index].height
         }
-        val animatorSet = AnimatorSet()
-        animatorSet.playSequentially(animators)
-        animatorSet.duration = 200
-        animatorSet.interpolator = AccelerateInterpolator()
-        animatorSet.start()
+        startAnim(animators)
     }
 
+    // animation of the disappearing of views
     private fun startBackwardAnimation(){
         var desiredHeight = 0
         val animators: MutableList<Animator> = ArrayList()
         for(index in 0 until views.size){
             val va = ObjectAnimator.ofFloat(views[index], TRANSLATION_Y,
-                -views[index].translationY)
-            views[index].translationY
+                measuredHeight - desiredHeight.toFloat())
             animators.add(va)
             desiredHeight += views[index].height
         }
-        val animatorSet = AnimatorSet()
-        animatorSet.playSequentially(animators)
-        animatorSet.duration = 200
-        animatorSet.interpolator = AccelerateInterpolator()
-        animatorSet.start()
+        startAnim(animators)
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
@@ -153,7 +128,6 @@ class AnimatedMenu@JvmOverloads constructor(
             }
             MotionEvent.ACTION_UP ->{
                 if(clickedViewIndex >= 0){
-                    // нужно сверить, удалять или нет
                     val absOffsetX = abs(pointClicked.x - event.x.toInt())
                     if(absOffsetX > measuredWidth/2){
                         descentAnimation(clickedViewIndex)
@@ -161,7 +135,7 @@ class AnimatedMenu@JvmOverloads constructor(
                     }
                     else{
                         views[clickedViewIndex].alpha = 1f
-                        views[clickedViewIndex].x = 0f // тут начальные координаты надо бы ткнуть(хотя хз)
+                        views[clickedViewIndex].x = 0f
                     }
                 }
                 clickedViewIndex = -1
@@ -178,6 +152,7 @@ class AnimatedMenu@JvmOverloads constructor(
         return true
     }
 
+    // search for the index of the element that the point belongs to
     private fun findViewByXY(x: Int, y: Int): Int{
         for(i in 0 until views.size){
             if(views[i].x < x && x < views[i].x + views[i].width &&
@@ -188,26 +163,30 @@ class AnimatedMenu@JvmOverloads constructor(
         return -1
     }
 
+    // drop animation for views, which were located above swiped view
     private fun descentAnimation(indexOfSwipedElement: Int){
         val animators: MutableList<Animator> = ArrayList()
         for(index in indexOfSwipedElement - 1 downTo 0){
-            views[index].translationY
             val va = ObjectAnimator.ofFloat(views[index], TRANSLATION_Y,
-                views[index].translationY + views[index].height)
+                views[index].height.toFloat())
             if(index == 0) {
                 va.doOnEnd { removeViewAt(indexOfSwipedElement) }
             }
             animators.add(va)
         }
+        startAnim(animators)
+    }
 
+    private fun startAnim(views: List<Animator>){
         AnimatorSet().apply{
-            playSequentially(animators)
+            playSequentially(views)
             duration = 200
             interpolator = AccelerateInterpolator()
             start()
         }
     }
 
+    // for programmatically adding views
     fun addNewView(view: View){
         views.add(view)
         addView(view)

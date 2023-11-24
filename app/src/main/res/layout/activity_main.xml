@@ -15,7 +15,8 @@
             android:id="@+id/background_image"
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:src="@drawable/background"
+            android:src="@drawable/background_img"
+            android:scaleType="centerCrop"
             android:layout_weight="90"
             android:weightSum="100"
             />
@@ -33,6 +34,13 @@
                 android:layout_height="wrap_content"
                 android:layout_width="100dp"
                 android:text="@string/Menu"/>
+            <Button
+                android:id="@+id/button_add"
+                android:layout_marginEnd="200dp"
+                android:layout_gravity="end|center"
+                android:layout_height="wrap_content"
+                android:layout_width="100dp"
+                android:text="Add"/>
         </FrameLayout>
     </LinearLayout>
     <com.example.testtaskwithanimationsformenu.AnimatedMenu

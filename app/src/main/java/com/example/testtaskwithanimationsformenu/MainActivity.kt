@@ -4,8 +4,12 @@ import android.animation.ValueAnimator
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Bundle
+import android.util.AttributeSet
 import android.view.View
+import android.view.ViewGroup
 import android.widget.Button
+import android.widget.ImageView
+import android.widget.LinearLayout
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -22,8 +26,5 @@ class MainActivity : AppCompatActivity() {
         button.setOnClickListener{
             menu.startAnimation()
         }
-        // проблема заключается в том, что мы не выезжаем за границы своего layout,
-        // надо всё же уметь отрисовывать эти элементы поверх, то есть сделать ещё одну вложенность
-        // типо то что сделали уже будет, но мы добавим FrameLayout
     }
 }
